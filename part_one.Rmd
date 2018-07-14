@@ -1,0 +1,70 @@
+---
+title: "part_one"
+author: "Cindy Chiu"
+date: "July 10, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("/Users/CindyChiu/healthcare_r")
+library("dplyr")
+library("survival")
+library("ggplot2")
+library("survminer")
+```
+
+```{r dataset, warning = FALSE}
+stage = read.csv("/Users/CindyChiu/healthcare_r/data/Stage.csv", stringsAsFactors = FALSE)
+SurvivalDays = read.csv("/Users/CindyChiu/healthcare_r/data/SurvivalDays.csv", stringsAsFactors = FALSE)
+lab_data = read.csv("/Users/CindyChiu/healthcare_r/data/Labs.csv", stringsAsFactors = FALSE)
+demo_data = read.csv("/Users/CindyChiu/healthcare_r/data/Demographics.csv", stringsAsFactors = FALSE)
+```
+
+## Part 1
+
+```{r surv}
+patient_data = full_join(stage, SurvivalDays, by = "ID")
+patient_data = patient_data %>% filter(!is.na(SurvivalDays))
+patient_data = mutate(patient_data, Status = as.factor(Status))
+patient_data_num = patient_data %>% mutate_if(is.factor, as.numeric)
+# censor data
+patient_data_num = patient_data_num[which(patient_data_num$Status!=3),]
+sfit3 = survfit(Surv(SurvivalDays, Status)~ClinStageS, data=patient_data_num)
+summary(sfit3)
+ggsurvplot(sfit3, title = 'Survival Curve for Patients')
+```
+
+## Part 2
+
+```{r patient}
+PatientGraph = function(ind_ID){
+  individual_data = lab_data %>%  filter(ID == ind_ID) %>% arrange(DaysFromDx) %>% filter(Panel!='Tumor biomarker') %>%  arrange(ObservationValueNumeric)
+  #ggplot(data = individual_data, aes(x = ))
+  ggplot(individual_data, aes(DaysFromDx, ObservationValueNumeric)) + geom_line(color = "skyblue") + geom_point(color = "blue", size =0.5)+ facet_grid(Panel~ ., scales="free")  
+}
+
+# example for patient "MM1"
+PatientGraph("MM1")
+```
+
+```{r graph_all, eval=FALSE}
+patient_ID = unique(lab_data$ID)
+for (i in patient_ID){
+  ind_graph = PatientGraph(i)
+  str_filename = paste0("/Users/CindyChiu/healthcare_r/graphs" ,i, ".png")
+  ggsave(filename = str_filename , ind_graph)
+  #print(i)
+}
+```
+
+## Part 3
+
+```{r sex_group}
+# Return a data frame with each sex min, max, average age
+demo_data %>% group_by(PatientSex) %>% summarise(min=min(AgeAtDx), max=max(AgeAtDx), avg = mean(AgeAtDx))
+# Return the patient ID with min age in each sex
+do.call(rbind,by(demo_data, demo_data$PatientSex, function(x) x[which.min(x$AgeAtDx), ]))
+#Return the patient ID with max age in each sex
+do.call(rbind,by(demo_data, demo_data$PatientSex, function(x) x[which.max(x$AgeAtDx), ]))
+```
