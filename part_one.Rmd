@@ -21,9 +21,10 @@ lab_data = read.csv("/Users/CindyChiu/healthcare_r/data/Labs.csv", stringsAsFact
 demo_data = read.csv("/Users/CindyChiu/healthcare_r/data/Demographics.csv", stringsAsFactors = FALSE)
 ```
 
-## Part 1
+## Part 1  
+The package survit helps make the anaylsis using Kaplan-Meier estimator
 
-```{r surv}
+```{r surv, warning = FALSE}
 patient_data = full_join(stage, SurvivalDays, by = "ID")
 patient_data = patient_data %>% filter(!is.na(SurvivalDays))
 patient_data = mutate(patient_data, Status = as.factor(Status))
@@ -35,26 +36,31 @@ summary(sfit3)
 ggsurvplot(sfit3, title = 'Survival Curve for Patients')
 ```
 
+```{r surv_2}
+sfit4 = survfit(Surv(YearOfDx, Status)~ClinStageS, data = patient_data_num)
+ggsurvplot(sfit4, title = 'Survival Curve for Patients', xlim = c(1995, 2018))+scale_x_continuous(name="Years",breaks =seq(1995, 2020, 5))
+```
+
+
 ## Part 2
 
 ```{r patient}
 PatientGraph = function(ind_ID){
   individual_data = lab_data %>%  filter(ID == ind_ID) %>% arrange(DaysFromDx) %>% filter(Panel!='Tumor biomarker') %>%  arrange(ObservationValueNumeric)
-  #ggplot(data = individual_data, aes(x = ))
-  ggplot(individual_data, aes(DaysFromDx, ObservationValueNumeric)) + geom_line(color = "skyblue") + geom_point(color = "blue", size =0.5)+ facet_grid(Panel~ ., scales="free")  
+  ggplot(individual_data, aes(DaysFromDx, ObservationValueNumeric)) + geom_line(color = "skyblue") + geom_point(color = "blue", size =0.5)+ labs(title= paste("Plot of", ind_ID), x ="Days", y = "Observation Value") + facet_grid(Panel~ ., scales="free")  
 }
-
 # example for patient "MM1"
 PatientGraph("MM1")
 ```
 
 ```{r graph_all, eval=FALSE}
+# change the code chunk to eval = TRUE, it will create graphs when running
 patient_ID = unique(lab_data$ID)
 for (i in patient_ID){
   ind_graph = PatientGraph(i)
+  # create seperate graphs for each patient and save them in folder graphs
   str_filename = paste0("/Users/CindyChiu/healthcare_r/graphs" ,i, ".png")
   ggsave(filename = str_filename , ind_graph)
-  #print(i)
 }
 ```
 
@@ -62,6 +68,7 @@ for (i in patient_ID){
 
 ```{r sex_group}
 # Return a data frame with each sex min, max, average age
+# The woman min age is a little weird with value -3
 demo_data %>% group_by(PatientSex) %>% summarise(min=min(AgeAtDx), max=max(AgeAtDx), avg = mean(AgeAtDx))
 # Return the patient ID with min age in each sex
 do.call(rbind,by(demo_data, demo_data$PatientSex, function(x) x[which.min(x$AgeAtDx), ]))
